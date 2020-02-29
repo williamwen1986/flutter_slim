@@ -1,0 +1,2 @@
+# flutter_slim
+通过分离ios AOT编译产物从而达到压缩flutter安装包size
