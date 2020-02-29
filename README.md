@@ -1,11 +1,11 @@
-#手把手教你分离flutter ios 编译产物--附工具
+# 手把手教你分离flutter ios 编译产物--附工具
 
 
-#1、为什么写这篇文章？
+# 1、为什么写这篇文章？
 
 Flutter ios安装包size的裁剪一直是个备受关注的主题，年前字节跳动分享了一篇文章（[https://juejin.im/post/5de8a32c51882512664affa4](https://juejin.im/post/5de8a32c51882512664affa4)），提到了ios分离AOT编译产物，把里面的数据段和资源提取出来以减少安装包size，但文章里面并没有展开介绍如何实现，这篇文章会很详细的分析如何分离AOT编译产物。并给出工具，方便没编译flutter engine经验的同学也可以快速的实现这功能。
 
-#2、ios编译产物构成
+# 2、ios编译产物构成
 
 本文主要分析App.framework里面的生成流程，以及如何分离AOT编译产物，App.framework的构成如下图所示。
 
@@ -13,7 +13,7 @@ Flutter ios安装包size的裁剪一直是个备受关注的主题，年前字�
 
 主要有App动态库二进制文件、flutter\_assets还有Info.plist三部分构成，而App动态库二进制文件又由4部分构成，vm的数据段、代码段和isolate的数据段、代码段。其中flutter\_assets、vm数据段、isolate数据段都是可以不打包到ipa中，可以从外部document中加载到，这就让我们有缩减ipa包的可能了。
 
-#3、真实线上项目AOT编译产物前后对比
+# 3、真实线上项目AOT编译产物前后对比
 
 很多人肯定会关心最终缩减的效果。我们先给出一个真实线上项目，用官方编译engine和用分离产物的engine生成的App.framework的对比图。
 
@@ -29,12 +29,12 @@ Flutter ios安装包size的裁剪一直是个备受关注的主题，年前字�
 
 App.framework从22.5裁到14.8M，不同项目可能不一样。
 
-#4、AOT编译产物生成原理及分离方法介绍
+# 4、AOT编译产物生成原理及分离方法介绍
 每次xcode项目进行进行构建前都会运行xcode\_backend.sh这个脚本进行flutter产物打包，我们从xcode\_backend.sh开始分析。从上文分析App.framework里面总共有三个文件生成二进制文件App、资源文件flutter\_assets目录和Info.plist文件，这里面我们只关心二进制文件App和flutter\_assets目录是怎样生成的。
 
-##4.1、App文件生成流程
+## 4.1、App文件生成流程
 
-###4.1.1、xcode\_backend.sh
+### 4.1.1、xcode\_backend.sh
 
 分析xcode\_backend.sh，我们可以发现生成App和flutter\_assets的关键shell代码如下
 
@@ -76,7 +76,7 @@ RunCommand "${FLUTTER_ROOT}/bin/flutter"     \
     ${track_widget_creation_flag}
 ```
 
-###4.1.2、${FLUTTER_ROOT}/bin/flutter
+### 4.1.2、${FLUTTER_ROOT}/bin/flutter
 
 从上面的代码可以看到这里调用了的远行了 **${FLUTTER_ROOT}/bin/flutter** 这个shell脚本，这里介绍另一篇[讲解Flutter命令执行机制的文章](http://gityuan.com/2019/09/01/flutter_tool/)， **${FLUTTER_ROOT}/bin/flutter** 里面提到真正运行代码的是
 
@@ -358,7 +358,7 @@ void AssemblyImageWriter::WriteText(WriteStream* clustered_stream, bool vm) {
 
 这里是生成的是snapshot\_assembly.S，后面在dart代码还将对这个文件加工成App动态库文件，我们会在下文介绍，**我们要做代码段和数据段分离修改的就是这个c++函数**，首先改掉代码不写进snapshot_assembly.S，在另外的地方把二进制数据保存起来。后面通过修改engine的加载流程从外部加载这二进制数据，即可达到分离代码段和数据段的目的。下面我们继续分析生成完snapshot\_assembly.S后，在哪里生成App动态库二进制文件。
 
-###4.1.5、dart代码调用xcrun生成二进制文件和动态库
+### 4.1.5、dart代码调用xcrun生成二进制文件和动态库
 
 生成完snapshot\_assembly.S后，再加工关键代码在**[-> lib/src/base/build.dart]**
 
@@ -434,7 +434,7 @@ void AssemblyImageWriter::WriteText(WriteStream* clustered_stream, bool vm) {
 
 这里最终会调用xcrun cc命令和xcrun clang命令打包动态库二进制文件。
 
-###4.1.6、修改生成动态库文件App的流程
+### 4.1.6、修改生成动态库文件App的流程
 
 根据上面的分析整个流程涉及dart代码和c++代码，dart代码其实不在engine，属于flutter项目，只需要用打开**[-> packages/flutter_tools]**这个flutter
 项目，直接修改就好，要注意一点，flutter\_tools的编译产物是有缓存的，缓存路径是**[-> bin/cache/flutter\_tools.snapshot]**，每次我们修改完dart代码，都需要删掉flutter\_tools.snapshot重新生成才能生效。
@@ -449,7 +449,7 @@ void AssemblyImageWriter::WriteText(WriteStream* clustered_stream, bool vm) {
 
 注意，engine是分架构的，arm64的gen_snapshot名字是gen\_snapshot\_arm64，armv7的gen\_snapshot名字是gen\_snapshot\_armv7，完成替换后，我们定制的代码就可以生效了。
 
-###4.1.7、生成动态库文件App流程总结
+### 4.1.7、生成动态库文件App流程总结
 
 至此，生成动态库文件App的全部流程都介绍清楚了，关键部分就是修改4.1.4提到的c++函数，我们修改完后的编译产物如下。
 
@@ -457,7 +457,7 @@ void AssemblyImageWriter::WriteText(WriteStream* clustered_stream, bool vm) {
 
 提取到了4个文件，分别是arm64和armv7架构下的vm数据段和isolate数据段，可以按需下发给数据段文件给应用，从而实现flutter ios 动态库编译产物的裁剪。
 
-##4.2、flutter\_assets生成流程
+## 4.2、flutter\_assets生成流程
 
 像4.1.1和4.1.2说的那样，具体生成flutter\_assets的代码在BundleBuilder.dart文件
 
@@ -513,7 +513,7 @@ Future<void> build({
 
 这里assetDirPath就是最终打包产生bundle产物的路径，我们只要修改这个路径，不指向App.framework，指向其他路径，就可以避免打包进app。
 
-##4.3、AOT编译产物生成原理总结
+## 4.3、AOT编译产物生成原理总结
 
 至此，我们已经把AOT编译产物里面的动态库文件App、flutter\_assets，的生成流程解析清楚了，也把如何分离的方法介绍了，对我们的demo做完修改后的产物跟分离前的产物对比如下图所示
 
@@ -527,11 +527,11 @@ Future<void> build({
 
 那下面我们分析如何修改flutter engine的加载流程，使engine不再加载App.framework里面的资源（因为已经分离出来），去加载外部给予的资源
 
-#5、AOT编译产物加载流程及修改方法介绍
+# 5、AOT编译产物加载流程及修改方法介绍
 
 上面我们已经成功从App.framework里面分离出了数据段数据已经flutter\_assets，现在需要修改加载流程，加载外部数据。
 
-##5.1、数据段加载流程分析及修改
+## 5.1、数据段加载流程分析及修改
 
 加载数据段的堆栈如下。
 
@@ -576,7 +576,7 @@ class SymbolMapping final : public Mapping {
 
 修改了这里，我们就可以完成外部数据段的加载了。
 
-##5.2、flutter\_assets加载流程分析及修改
+## 5.2、flutter\_assets加载流程分析及修改
 
 这个比较简单，我们直接上代码，
 
@@ -584,15 +584,15 @@ class SymbolMapping final : public Mapping {
 
 只要改了settings.assets\_path，改成外部的路径就好了。
 
-##5.3、修改engine总结
+## 5.3、修改engine总结
 
 到这里，我们已经成功分离好engine了，分离之后对于很多混编的项目就是，flutter并不是必须的，就可以吧数据段部分和flutter\_assets不打包进ipa，按需的下载下来，从而实现ipa的减size，下午会给出编好的engine、gen\_snapshot文件和demo。当然，有些业务甚至不希望下载，想调用流程完全不变，也可以减size，这个由于篇幅有限，我们后面再写一篇专门给出方法和工具。
 
-#6、工具介绍和使用
+# 6、工具介绍和使用
 
 从上面的分析可以看出，搞这个事情，要很多铺垫，很麻烦，很多同学并不想摸索这么久才能在自己的项目进行实验，看效果，为了方便大家验证，我直接把基于v1.12.13+hotfix.7编好的engine、gen\_snapshot文件和demo放到[github](https://github.com/williamwen1986/flutter_slim)上，让大家直接用.编出来的Flutter.framework是全架构支持的、经过优化的release版，可以直接上线的。下面介绍下运行流程。
 
-##6.1如何运行demo验证
+## 6.1如何运行demo验证
 
 在[github](https://github.com/williamwen1986/flutter_slim)上下载demo，不做任何改动，用真机直接运行，可以看到产物如下图所示，App动态库 5.5M，flutter\_assets 715k，总大小 6.3M。
 
@@ -619,6 +619,6 @@ class SymbolMapping final : public Mapping {
 
 ![image](https://raw.githubusercontent.com/williamwen1986/flutter_slim/master/img/16.png)
 
-#7、总结
+# 7、总结
 
 目前使用这方案，可以分离编译产物和flutter\_assets，但也需要app做一定的改动，就是从服务器下载数据段和flutter\_assets，才能运行flutter。当然还有一个方法，直接对数据段进行压缩，运行的时候解压，这个也是可行的，但压缩率就没这么高，后面我们也会开源并给出文章介绍。
