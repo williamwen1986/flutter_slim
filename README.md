@@ -78,7 +78,7 @@ RunCommand "${FLUTTER_ROOT}/bin/flutter"     \
 
 ### 4.1.2、${FLUTTER_ROOT}/bin/flutter
 
-从上面的代码可以看到这里调用了的远行了 **${FLUTTER_ROOT}/bin/flutter** 这个shell脚本，这里介绍另一篇[讲解Flutter命令执行机制的文章](http://gityuan.com/2019/09/01/flutter_tool/)， **${FLUTTER_ROOT}/bin/flutter** 里面提到真正运行代码的是
+从上面的代码可以看到这里调用了的远行了 **/bin/flutter** 这个shell脚本，这里介绍另一篇[讲解Flutter命令执行机制的文章](http://gityuan.com/2019/09/01/flutter_tool/)， **/bin/flutter** 里面提到真正运行代码的是
 
 ```shell
 ...
